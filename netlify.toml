@@ -1,0 +1,19 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[[redirects]]
+  from = "/getfile/*"
+  to = "https://innlab.lanzn.com/:splat"
+  status = 200
+  force = true
+  headers = {Host = "innlab.lanzn.com", X-Real-IP = "$remote_addr", X-Forwarded-For = "$proxy_add_x_forwarded_for", X-Forwarded-Proto = "$scheme"}
+
+[[headers]]
+  for = "/getfile/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range"
+    Access-Control-Expose-Headers = "Content-Length,Content-Range"
+
