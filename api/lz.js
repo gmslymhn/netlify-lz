@@ -1,36 +1,46 @@
+// netlify/functions/lz.js
 const https = require('https');
 const { URL } = require('url');
+const mongoCache = require('./mongo-cache');
 
-exports.handler = async (event, context) => {
+exports.handler = async (event, context, callback) => {
     try {
-        // 解析查询参数
-        const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters;
+        const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
 
         if (!fid) {
-            return {
+            return callback(null, {
                 statusCode: 400,
                 body: '缺少必要参数: fid'
-            };
+            });
         }
 
-        // 第一步：获取文件页面HTML
+        // 1. 检查缓存
+        const cachedUrl = await mongoCache.get(fid);
+        if (cachedUrl) {
+            console.log(`[缓存命中] fid=${fid}`);
+            return callback(null, {
+                statusCode: 302,
+                headers: {
+                    Location: cachedUrl
+                },
+                body: ''
+            });
+        }
+
+        console.log(`[缓存未命中] 开始解析 fid=${fid}`);
+
+        // 2. 原始解析流程
         const htmlText = await fetchUrl(`https://innlab.lanzn.com/${fid}`, {
-            headers: {
-                'Referer': isNewd,
-            }
+            headers: { 'Referer': isNewd }
         });
 
-        // 提取文件URL和sign值
         const fileurl = extractValue(htmlText, /url\s*:\s*['"]([^'"]+?)['"],/);
         const signs = extractAllMatches(htmlText, /'sign':'([^']+)'/g);
 
-        console.log("fileurl", fileurl);
-        console.log("signs", signs);
         if (!fileurl || signs.length < 2) {
             throw new Error('解析HTML失败：缺少关键数据');
         }
 
-        // 第二步：提交验证信息
         const postData = new URLSearchParams({
             action: "downprocess",
             sign: signs[1],
@@ -48,33 +58,37 @@ exports.handler = async (event, context) => {
         });
 
         const result = JSON.parse(postResponse);
-        console.log(result);
         if (result.zt !== 1) {
             throw new Error(result.inf || '文件解析失败');
         }
 
-        // 获取最终下载URL
+        // 3. 获取最终URL并缓存
         const intermediateUrl = `${result.dom}/file/${result.url}`;
         const finalUrl = await getFinalRedirectUrl(intermediateUrl);
-        console.log("finalUrl", finalUrl);
 
-        // 302重定向到最终下载链接
-        return {
+        // 存入缓存
+        await mongoCache.set(fid, finalUrl);
+        console.log(`[缓存已更新] fid=${fid}`);
+
+        // 4. 重定向
+        return callback(null, {
             statusCode: 302,
             headers: {
                 Location: finalUrl
-            }
-        };
+            },
+            body: ''
+        });
     } catch (error) {
         console.error('解析失败:', error);
-        return {
+        return callback(null, {
             statusCode: 500,
             body: `解析失败: ${error.message}`
-        };
+        });
     }
 };
 
-// 获取重定向后的最终URL
+
+// 新增函数：获取重定向后的最终URL
 function getFinalRedirectUrl(url) {
     return new Promise((resolve, reject) => {
         const { hostname, pathname, search } = new URL(url);
