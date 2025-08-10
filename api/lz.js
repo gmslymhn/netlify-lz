@@ -1,12 +1,16 @@
 const https = require('https');
 const { URL } = require('url');
 
-module.exports = async (req, res) => {
+exports.handler = async (event, context) => {
     try {
-        const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = req.query;
+        // 解析查询参数
+        const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters;
 
         if (!fid) {
-            return res.status(400).send('缺少必要参数: fid');
+            return {
+                statusCode: 400,
+                body: '缺少必要参数: fid'
+            };
         }
 
         // 第一步：获取文件页面HTML
@@ -20,8 +24,8 @@ module.exports = async (req, res) => {
         const fileurl = extractValue(htmlText, /url\s*:\s*['"]([^'"]+?)['"],/);
         const signs = extractAllMatches(htmlText, /'sign':'([^']+)'/g);
 
-        console.log("fileurl",fileurl)
-        console.log("signs",signs)
+        console.log("fileurl", fileurl);
+        console.log("signs", signs);
         if (!fileurl || signs.length < 2) {
             throw new Error('解析HTML失败：缺少关键数据');
         }
@@ -44,24 +48,33 @@ module.exports = async (req, res) => {
         });
 
         const result = JSON.parse(postResponse);
-        console.log(result)
+        console.log(result);
         if (result.zt !== 1) {
             throw new Error(result.inf || '文件解析失败');
         }
-// 获取最终下载URL
+
+        // 获取最终下载URL
         const intermediateUrl = `${result.dom}/file/${result.url}`;
         const finalUrl = await getFinalRedirectUrl(intermediateUrl);
-        console.log("finalUrl",finalUrl)
+        console.log("finalUrl", finalUrl);
+
         // 302重定向到最终下载链接
-        res.redirect(302, finalUrl);
+        return {
+            statusCode: 302,
+            headers: {
+                Location: finalUrl
+            }
+        };
     } catch (error) {
         console.error('解析失败:', error);
-        res.status(500).send(`解析失败: ${error.message}`);
+        return {
+            statusCode: 500,
+            body: `解析失败: ${error.message}`
+        };
     }
 };
 
-
-// 新增函数：获取重定向后的最终URL
+// 获取重定向后的最终URL
 function getFinalRedirectUrl(url) {
     return new Promise((resolve, reject) => {
         const { hostname, pathname, search } = new URL(url);
@@ -70,7 +83,7 @@ function getFinalRedirectUrl(url) {
             hostname,
             path: pathname + (search || ''),
             method: 'GET',
-            headers: {//我是浏览器我是浏览器我是浏览器
+            headers: {
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
                 'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
                 'sec-ch-ua': '"Chromium";v="122", "Not(A:Brand";v="24", "Microsoft Edge";v="122"',
@@ -106,8 +119,6 @@ function getFinalRedirectUrl(url) {
         req.end();
     });
 }
-
-
 
 // 使用原生https模块实现HTTP请求
 function fetchUrl(url, options = {}) {
