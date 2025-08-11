@@ -2,7 +2,7 @@
 const https = require('https');
 const { URL } = require('url');
 
-const mongoCache = require('./mongo-cache');
+const mongoCache = require('../mongodb/mongo-cache');
 
 exports.handler = async (event, context, callback) => {
     try {
