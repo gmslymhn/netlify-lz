@@ -90,5 +90,11 @@ module.exports = () => {
     }
     return instance;
 };
+
+process.on('SIGTERM', async () => {
+    await client.close();
+    process.exit(0);
+});
+
 // 在函数结尾添加
 console.timeEnd('Function execution');

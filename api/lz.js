@@ -4,89 +4,128 @@ const { URL } = require('url');
 
 const mongoCache = require('../mongodb/mongo-cache')();
 
-exports.handler = async (event, context, callback) => {
+
+exports.handler = async (event) => {
     try {
-        const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
+        const { fid } = event.queryStringParameters;
+        console.log('Start processing fid:', fid);
 
-        if (!fid) {
-            return callback(null, {
-                statusCode: 400,
-                body: '缺少必要参数: fid'
-            });
+        // 1. 获取缓存（添加超时控制）
+        const cachedUrl = await Promise.race([
+            mongoCache.get(fid),
+            new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('MongoDB timeout')), 3000)
+            )
+        ]);
+
+        // 2. 确认缓存有效
+        if (!cachedUrl) {
+            console.log('Cache miss for fid:', fid);
+            return { statusCode: 404, body: 'Not Found' };
         }
 
-        // 1. 检查缓存
-        const cachedUrl = await mongoCache.get(fid);
-        if (cachedUrl) {
-            console.log(`[缓存命中] fid=${fid}`);
-            return callback(null, {
-                statusCode: 302,
-                headers: {
-                    Location: cachedUrl
-                },
-                body: ''
-            });
-        }
+        console.log('Redirecting to:', cachedUrl);
 
-        console.log(`[缓存未命中] 开始解析 fid=${fid}`);
-
-        // 2. 原始解析流程
-        const htmlText = await fetchUrl(`https://innlab.lanzn.com/${fid}`, {
-            headers: { 'Referer': isNewd }
-        });
-
-        const fileurl = extractValue(htmlText, /url\s*:\s*['"]([^'"]+?)['"],/);
-        const signs = extractAllMatches(htmlText, /'sign':'([^']+)'/g);
-
-        if (!fileurl || signs.length < 2) {
-            throw new Error('解析HTML失败：缺少关键数据');
-        }
-
-        const postData = new URLSearchParams({
-            action: "downprocess",
-            sign: signs[1],
-            p: pwd || '',
-            kd: 1
-        }).toString();
-
-        const postResponse = await fetchUrl(`https://innlab.lanzn.com${fileurl}`, {
-            method: 'POST',
-            headers: {
-                'Referer': `https://innlab.lanzn.com/${fid}`,
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: postData
-        });
-
-        const result = JSON.parse(postResponse);
-        if (result.zt !== 1) {
-            throw new Error(result.inf || '文件解析失败');
-        }
-
-        // 3. 获取最终URL并缓存
-        const intermediateUrl = `${result.dom}/file/${result.url}`;
-        const finalUrl = await getFinalRedirectUrl(intermediateUrl);
-
-        // 存入缓存
-        await mongoCache.set(fid, finalUrl);
-        console.log(`[缓存已更新] fid=${fid}`);
-
-        // 4. 重定向
-        return callback(null, {
+        // 3. 立即返回响应（重要！）
+        return {
             statusCode: 302,
             headers: {
-                Location: finalUrl
-            },
-            body: ''
-        });
-    } catch (error) {
-        console.error('解析失败:', error);
-        return callback(null, {
+                Location: cachedUrl,
+                'Cache-Control': 'no-cache'
+            }
+        };
+
+    } catch (err) {
+        console.error('Critical error:', err);
+        return {
             statusCode: 500,
-            body: `解析失败: ${error.message}`
-        });
+            body: `Internal Server Error: ${err.message}`
+        };
     }
 };
+// exports.handler = async (event, context, callback) => {
+//     try {
+//         const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
+//
+//         if (!fid) {
+//             return callback(null, {
+//                 statusCode: 400,
+//                 body: '缺少必要参数: fid'
+//             });
+//         }
+//
+//         // 1. 检查缓存
+//         const cachedUrl = await mongoCache.get(fid);
+//         if (cachedUrl) {
+//             console.log(`[缓存命中] fid=${fid}`);
+//             return callback(null, {
+//                 statusCode: 302,
+//                 headers: {
+//                     Location: cachedUrl
+//                 },
+//                 body: ''
+//             });
+//         }
+//
+//         console.log(`[缓存未命中] 开始解析 fid=${fid}`);
+//
+//         // 2. 原始解析流程
+//         const htmlText = await fetchUrl(`https://innlab.lanzn.com/${fid}`, {
+//             headers: { 'Referer': isNewd }
+//         });
+//
+//         const fileurl = extractValue(htmlText, /url\s*:\s*['"]([^'"]+?)['"],/);
+//         const signs = extractAllMatches(htmlText, /'sign':'([^']+)'/g);
+//
+//         if (!fileurl || signs.length < 2) {
+//             throw new Error('解析HTML失败：缺少关键数据');
+//         }
+//
+//         const postData = new URLSearchParams({
+//             action: "downprocess",
+//             sign: signs[1],
+//             p: pwd || '',
+//             kd: 1
+//         }).toString();
+//
+//         const postResponse = await fetchUrl(`https://innlab.lanzn.com${fileurl}`, {
+//             method: 'POST',
+//             headers: {
+//                 'Referer': `https://innlab.lanzn.com/${fid}`,
+//                 'Content-Type': 'application/x-www-form-urlencoded',
+//             },
+//             body: postData
+//         });
+//
+//         const result = JSON.parse(postResponse);
+//         if (result.zt !== 1) {
+//             throw new Error(result.inf || '文件解析失败');
+//         }
+//
+//         // 3. 获取最终URL并缓存
+//         const intermediateUrl = `${result.dom}/file/${result.url}`;
+//         const finalUrl = await getFinalRedirectUrl(intermediateUrl);
+//
+//         // 存入缓存
+//         await mongoCache.set(fid, finalUrl);
+//         console.log(`[缓存已更新] fid=${fid}`);
+//
+//         // 4. 重定向
+//         return callback(null, {
+//             statusCode: 302,
+//             headers: {
+//                 Location: finalUrl
+//             },
+//             body: ''
+//         });
+//     } catch (error) {
+//         console.error('解析失败:', error);
+//         return callback(null, {
+//             statusCode: 500,
+//             body: `解析失败: ${error.message}`
+//         });
+//     }
+// };
 
 
 // 新增函数：获取重定向后的最终URL
