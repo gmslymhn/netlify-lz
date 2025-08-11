@@ -1,6 +1,6 @@
 const { MongoClient } = require('mongodb');
 // 在函数开头添加
-console.time('Function execution');
+console.time('mongodb');
 class MongoCache {
     constructor() {
         this.client = new MongoClient(process.env.MONGODB_URI || "mongodb+srv://gmslymhn:dNMKZeFiAXn3P856@gm.oxqdnlc.mongodb.net/?retryWrites=true&w=majority&appName=gm", {
@@ -100,4 +100,4 @@ process.on('SIGTERM', async () => {
 });
 
 // 在函数结尾添加
-console.timeEnd('Function execution');
+console.timeEnd('mongodb');

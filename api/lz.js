@@ -3,7 +3,7 @@ const https = require('https');
 const { URL } = require('url');
 
 const mongoCache = require('./mongo-cache')();
-
+console.time('lz');
 exports.handler = async (event) => {
     try {
         const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
@@ -177,3 +177,5 @@ function extractAllMatches(text, regex) {
     }
     return matches;
 }
+// 在函数结尾添加
+console.timeEnd('lz');
