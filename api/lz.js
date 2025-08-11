@@ -9,23 +9,23 @@ exports.handler = async (event, context, callback) => {
         const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
 
         if (!fid) {
-            return callback(null, {
+            return {
                 statusCode: 400,
                 body: '缺少必要参数: fid'
-            });
+            };
         }
 
-        // 1. 检查缓存
+        // 检查缓存
         const cachedUrl = await mongoCache.get(fid);
         if (cachedUrl) {
             console.log(`[缓存命中] fid=${fid}`);
-            return callback(null, {
+            return {
                 statusCode: 302,
                 headers: {
                     Location: cachedUrl
                 },
                 body: ''
-            });
+            };
         }
 
         console.log(`[缓存未命中] 开始解析 fid=${fid}`);
@@ -72,13 +72,13 @@ exports.handler = async (event, context, callback) => {
         console.log(`[缓存已更新] fid=${fid}`);
 
         // 4. 重定向
-        return callback(null, {
+        return {
             statusCode: 302,
             headers: {
                 Location: finalUrl
             },
             body: ''
-        });
+        };
     } catch (error) {
         console.error('解析失败:', error);
         return callback(null, {
