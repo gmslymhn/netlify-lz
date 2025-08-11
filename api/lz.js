@@ -2,47 +2,8 @@
 const https = require('https');
 const { URL } = require('url');
 
-const mongoCache = require('../mongodb/mongo-cache')();
+const mongoCache = require('./mongo-cache')();
 
-
-// exports.handler = async (event) => {
-//     try {
-//         const { fid } = event.queryStringParameters;
-//         console.log('Start processing fid:', fid);
-//
-//         // 1. 获取缓存（添加超时控制）
-//         const cachedUrl = await Promise.race([
-//             mongoCache.get(fid),
-//             new Promise((_, reject) =>
-//                 setTimeout(() => reject(new Error('MongoDB timeout')), 3000)
-//             )
-//         ]);
-//
-//         // 2. 确认缓存有效
-//         if (!cachedUrl) {
-//             console.log('Cache miss for fid:', fid);
-//             return { statusCode: 404, body: 'Not Found' };
-//         }
-//
-//         console.log('Redirecting to:', cachedUrl);
-//
-//         // 3. 立即返回响应（重要！）
-//         return {
-//             statusCode: 302,
-//             headers: {
-//                 Location: cachedUrl,
-//                 'Cache-Control': 'no-cache'
-//             }
-//         };
-//
-//     } catch (err) {
-//         console.error('Critical error:', err);
-//         return {
-//             statusCode: 500,
-//             body: `Internal Server Error: ${err.message}`
-//         };
-//     }
-// };
 exports.handler = async (event, context, callback) => {
     try {
         const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};

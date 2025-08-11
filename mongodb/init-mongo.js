@@ -1,4 +1,4 @@
-const mongoCache = require('./mongo-cache');
+const mongoCache = require('../api/mongo-cache');
 
 async function init() {
     try {
