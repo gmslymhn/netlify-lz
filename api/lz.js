@@ -4,7 +4,7 @@ const { URL } = require('url');
 
 const mongoCache = require('./mongo-cache')();
 
-exports.handler = async (event, context, callback) => {
+exports.handler = async (event) => {
     try {
         const { fid, pwd, isNewd = 'https://innlab.lanzn.com/' } = event.queryStringParameters || {};
 
