@@ -91,8 +91,11 @@ module.exports = () => {
     return instance;
 };
 
+// 修正为：
 process.on('SIGTERM', async () => {
-    await client.close();
+    if (instance) {
+        await instance.client.close();
+    }
     process.exit(0);
 });
 
