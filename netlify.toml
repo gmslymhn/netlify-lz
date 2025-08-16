@@ -1,3 +1,11 @@
+[[headers]]
+  for = "/api/lz/*"
+  [headers.values]
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+
+
 [[redirects]]
   from = "/getfile/*"
   to = "https://innlab.lanzn.com/:splat"

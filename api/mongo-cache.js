@@ -48,7 +48,6 @@ class MongoCache {
                 _id: fid,
                 expiresAt: { $gt: new Date() }
             }, { maxTimeMS: 5000 });  // 5秒查询超时
-
             return doc?.url || null;
         } catch (err) {
             console.error('MongoCache.get error:', err);
